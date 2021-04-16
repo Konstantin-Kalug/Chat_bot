@@ -8,22 +8,8 @@ import os
 from data import db_session
 
 
-class Requests:
-    def __init__(self, message):
-        self.req = message
-
-
-class Wiki(Requests):
-    pass
-
-
-class YandexMap(Requests):
-    pass
-
-
 class Bot:
     def __init__(self):
-        wikipedia.set_lang("ru")
         TOKEN = '1695668954:AAGIP9C_rmojFPzHeER7_-UQNGiOnLtA8qI'
         reply_keyboard = [['WIKI', 'YANDEX MAP'],
                           ['/help', '/stop']]
@@ -89,35 +75,30 @@ class Bot:
             return 3
 
     def wiki_handler_func(self, update, context):
-        # получение материала с википедии стоит перенести в отдельный класс,
-        # когда будет выполнен весь функционал библиотеки в программе
+        # получение большего количества картинок по запросу
         if update.message.text == 'Больше картинок':
             if 'wiki_req' in context.user_data.keys():
-                if len(wikipedia.page(context.user_data['wiki_req']).images) != 0:
-                    for i in range(len(wikipedia.page(context.user_data['wiki_req']).images) % 10):
-                        context.bot.send_photo(
-                            update.message.chat_id,
-                            wikipedia.page(context.user_data['wiki_req']).images[i],
-                            caption=""
-                        )
-        elif update.message.text == 'Получить url' and 'wiki_req' in context.user_data.keys():
-            update.message.reply_text(wikipedia.page(context.user_data['wiki_req']).url)
+                context.user_data['wiki_req'].get_images(update, context)
+            else:
+                update.message.reply_text('А я не знаю, что вам отправить!')
+        # получение url
+        elif update.message.text == 'Получить url':
+            if 'wiki_req' in context.user_data.keys():
+                context.user_data['wiki_req'].get_url(update, context)
+            else:
+                update.message.reply_text('Нельзя получить url "никакой" страницы!')
+        # возвращение на начальную клавиатуру
         elif update.message.text == 'Вернуться назад':
-            update.message.reply_text('Надеюсь, я помог!', reply_markup=self.markup_start)
+            update.message.reply_text('Надеюсь, WIKI вам помогла!', reply_markup=self.markup_start)
             return 1
+        # выводим контент википедии и сохраняем запрос для последующего возможного использования
         else:
             try:
-                wikipage = wikipedia.page(update.message.text)
-                context.user_data['wiki_req'] = update.message.text
-                if len(wikipage.images) != 0:
-                    context.bot.send_photo(
-                        update.message.chat_id,
-                        wikipage.images[0],
-                        caption=""
-                    )
-                update.message.reply_text(wikipage.content[0:4096])
+                wiki = Wiki(update.message.text)
+                context.user_data['wiki_req'] = wiki
+                context.user_data['wiki_req'].get_content(update, context)
             except Exception:
-                update.message.reply_text('По данному запросу ничего не найдено!')
+                update.message.reply_text("По данному запросу ничего не найдено!")
 
     def map_handler_func(self, update, context):
         # получение материала с яндекса стоит перенести в отдельный класс,
@@ -158,6 +139,52 @@ class Bot:
         spn = ','.join([str(float(toponym["boundedBy"]["Envelope"]["upperCorner"].split()[0]) - float(toponym["boundedBy"]["Envelope"]["lowerCorner"].split()[0])),
                         str(float(toponym["boundedBy"]["Envelope"]["upperCorner"].split()[1]) - float(toponym["boundedBy"]["Envelope"]["lowerCorner"].split()[1]))])
         return ll, spn
+
+
+class Wiki(Bot):
+    def __init__(self, request):
+        # переменные вывода
+        wikipedia.set_lang("ru")
+        wikipage = wikipedia.page(request)
+        self.images = wikipage.images
+        self.url = wikipage.url
+        self.content = wikipage.content
+
+    def get_images(self, update, context):
+        # отправляем до 10 картинок, если можем
+        if len(self.images) != 0:
+            for i in range(len(self.images) % 10):
+                try:
+                    context.bot.send_photo(
+                        update.message.chat_id,
+                        self.images[0],
+                        caption=""
+                    )
+                except Exception:
+                    pass
+        else:
+            update.message.reply_text('К сожалению, фотографий не нашлось!')
+
+    def get_url(self, update, context):
+        # отправляем url
+        update.message.reply_text(self.url)
+
+    def get_content(self, update, context):
+        # отправляем основной контент
+        if len(self.images) != 0:
+            try:
+                context.bot.send_photo(
+                    update.message.chat_id,
+                    self.images[0],
+                    caption=""
+                )
+            except Exception:
+                pass
+        update.message.reply_text(self.content[:4096])
+
+
+class YandexMap(Bot):
+    pass
 
 
 if __name__ == '__main__':
