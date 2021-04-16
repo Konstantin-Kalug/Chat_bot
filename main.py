@@ -135,7 +135,6 @@ class Bot:
             l_map = 'map'
             context.user_data['map_req'] = update.message.text
         try:
-            print(context.user_data['map_req'])
             geocoder_uri = geocoder_request_template = "http://geocode-maps.yandex.ru/1.x/"
             response = requests.get(geocoder_uri, params={
                 "apikey": "40d1649f-0493-4b70-98ba-98533de7710b",
