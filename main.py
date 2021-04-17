@@ -234,6 +234,7 @@ class Wiki(Bot):
             except Exception:
                 pass
         update.message.reply_text(self.content[:4096])
+        self.db.update_stat(update.message.chat_id, 'wiki')
 
 
 class DataBase(Bot):
@@ -255,6 +256,7 @@ class DataBase(Bot):
                           user_id=chat_id)
         self.db_sess.add(article)
         self.db_sess.commit()
+        self.db.update_stat(update.message.chat_id, 'art')
 
     def search_chat(self, chat_id):
         # ищем пользователя в базе
@@ -271,9 +273,24 @@ class DataBase(Bot):
                    f'4.Общий рейтинг: {user.overall_rating}'
             update.message.reply_text(text)
 
+    def update_stat(self, chat_id, type):
+        # обновляем статистику
+        # функция работает, ошибки возникают в вызове
+        for user in self.db_sess.query(User).filter(User.chat_id == chat_id):
+            if type == 'wiki':
+                user.wiki_requests += 1
+                user.overall_rating += 1
+            elif type == 'map':
+                user.maps_requests += 1
+                user.overall_rating += 5
+            elif type == 'art':
+                user.articles += 1
+                user.overall_rating += 10
+            self.db_sess.commit()
+
 
 class YandexMap(Bot):
-    def __init__(self, request):
+    def __init__(self, update, request):
         # нициализируем запрос
         geocoder_uri = geocoder_request_template = "http://geocode-maps.yandex.ru/1.x/"
         response = requests.get(geocoder_uri, params={
@@ -299,6 +316,7 @@ class YandexMap(Bot):
             static_api_request,
             caption=""
         )
+        self.db.update_stat(update.message.chat_id, 'map')
 
     def get_ll_spn(self, toponym):
         # получаем координаты и масштаб
