@@ -53,7 +53,7 @@ class Bot:
         self.markup_start = ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=False)
         reply_keyboard = [['Больше картинок', 'Получить url'], ['Вернуться назад']]
         self.markup_wiki = ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=False)
-        reply_keyboard = [['Больше информации'], ['Спутник', 'Гибрид'], ['Вернуться назад']]
+        reply_keyboard = [['Спутник', 'Гибрид'], ['Вернуться назад']]
         self.markup_map = ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=False)
         self.markup_back = ReplyKeyboardMarkup([['Вернуться назад']], one_time_keyboard=False)
 
@@ -261,14 +261,16 @@ class Wiki(Bot):
     def get_content(self, update, context):
         # отправляем основной контент
         if len(self.images) != 0:
-            try:
-                context.bot.send_photo(
-                    update.message.chat_id,
-                    self.images[0],
-                    caption=""
-                )
-            except Exception:
-                pass
+            for i in range(len(self.images) % 10):
+                try:
+                    context.bot.send_photo(
+                        update.message.chat_id,
+                        self.images[i],
+                        caption=""
+                    )
+                    break
+                except Exception:
+                    pass
         update.message.reply_text(self.content[:4096])
 
 
