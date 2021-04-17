@@ -178,14 +178,8 @@ class Bot:
                 update.message.reply_text("По данному запросу ничего не найдено!")
 
     def map_handler_func(self, update, context):
-        # получаем больше информации о месте
-        if update.message.text == 'Больше информации':
-            if 'map_req' in context.user_data.keys():
-                pass
-            else:
-                update.message.reply_text('Мне нужен запрос, чтобы дать информацию')
         # возвращаемся
-        elif update.message.text == 'Вернуться назад':
+        if update.message.text == 'Вернуться назад':
             update.message.reply_text('Надеюсь, я помог!', reply_markup=self.markup_start)
             return 1
         # меняем тип карты на спутник
@@ -340,6 +334,9 @@ class YandexMap(Bot):
             })
         toponym = response.json()["response"]["GeoObjectCollection"][
             "featureMember"][0]["GeoObject"]
+        self.text = 'Адрес:'
+        for c in toponym['metaDataProperty']['GeocoderMetaData']['Address']['Components']:
+            self.text += f' {c["name"]}'
         self.ll, self.spn = self.get_ll_spn(toponym)
         self.l_map = 'map'
 
@@ -354,7 +351,7 @@ class YandexMap(Bot):
         context.bot.send_photo(
             update.message.chat_id,
             static_api_request,
-            caption=""
+            caption=self.text
         )
 
     def get_ll_spn(self, toponym):
