@@ -6,19 +6,15 @@ import random
 import wikipedia
 import os
 from data import db_session
+from data.users import User
 
 
 class Bot:
     def __init__(self):
         TOKEN = '1695668954:AAGIP9C_rmojFPzHeER7_-UQNGiOnLtA8qI'
-        reply_keyboard = [['WIKI', 'YANDEX MAP'],
-                          ['/help', '/stop']]
-        self.markup_start = ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=False)
-        reply_keyboard = [['Больше картинок', 'Получить url'], ['Вернуться назад']]
-        self.markup_wiki = ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=False)
-        reply_keyboard = [['Больше информации'], ['Спутник', 'Гибрид'], ['Вернуться назад']]
-        self.markup_map = ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=False)
         updater = Updater(TOKEN, use_context=True)
+        self.db = DataBase("db/info.db")
+        self.create_keyboards()
         dp = updater.dispatcher
         conv_handler = ConversationHandler(
             entry_points=[CommandHandler('start', self.start)],
@@ -36,11 +32,25 @@ class Bot:
         updater.start_polling()
         updater.idle()
 
+    def create_keyboards(self):
+        reply_keyboard = [['WIKI', 'YANDEX MAP'],
+                          ['Создать статью', 'Статьи'],
+                          ['Транслейтор'],
+                          ['Вывести статистику'],
+                          ['/help', '/stop']]
+        self.markup_start = ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=False)
+        reply_keyboard = [['Больше картинок', 'Получить url'], ['Вернуться назад']]
+        self.markup_wiki = ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=False)
+        reply_keyboard = [['Больше информации'], ['Спутник', 'Гибрид'], ['Вернуться назад']]
+        self.markup_map = ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=False)
+
     def start(self, update, context):
         update.message.reply_text('Приветствую! Я Инфо_бот, благодаря мне вы сможете найти'
                                   ' нужную вам информацию, не выходя из телеграмма! Напишите /help,'
                                   ' для получения большей информации',
                                   reply_markup=self.markup_start)
+        if not(self.db.search_chat(update.message.chat_id)):
+            self.db.add_user(update, context)
         return 1
 
     def stop(self, update, context):
@@ -73,6 +83,8 @@ class Bot:
             update.message.reply_text('Пожалуйста, сообщите мне, что я должен для вас найти!',
                                       reply_markup=self.markup_map)
             return 3
+        elif update.message.text == 'Вывести статистику':
+            self.db.get_stat(update.message.chat_id, update, context)
 
     def wiki_handler_func(self, update, context):
         # получение большего количества картинок по запросу
@@ -183,9 +195,28 @@ class Wiki(Bot):
         update.message.reply_text(self.content[:4096])
 
 
-class DataBase:
+class DataBase(Bot):
     def __init__(self, address):
-        pass
+        db_session.global_init(address)
+        self.db_sess = db_session.create_session()
+
+    def add_user(self, update, context):
+        user = User(chat_id=update.message.chat_id)
+        self.db_sess.add(user)
+        self.db_sess.commit()
+
+    def search_chat(self, chat_id):
+        for user in self.db_sess.query(User).filter(User.chat_id == chat_id):
+            return True
+        return False
+
+    def get_stat(self, chat_id, update, context):
+        for user in self.db_sess.query(User).filter(User.chat_id == chat_id):
+            text = f'1.Количество WIKI запросов: {user.wiki_requests}\n' \
+                   f'2.Количество YANDEX MAP запросов: {user.maps_requests}\n' \
+                   f'3.Количество статей: {user.articles}\n' \
+                   f'4.Общий рейтинг: {user.overall_rating}'
+            update.message.reply_text(text)
 
 
 class YandexMap(Bot):
