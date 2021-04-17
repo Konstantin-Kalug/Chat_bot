@@ -6,6 +6,7 @@ import random
 import wikipedia
 import os
 from data import db_session
+from data.articles import Article
 from data.users import User
 
 
@@ -24,7 +25,11 @@ class Bot:
                 2: [CommandHandler('stop', self.stop),
                     MessageHandler(Filters.text, self.wiki_handler_func, pass_user_data=True)],
                 3: [CommandHandler('stop', self.stop),
-                    MessageHandler(Filters.text, self.map_handler_func, pass_user_data=True)]
+                    MessageHandler(Filters.text, self.map_handler_func, pass_user_data=True)],
+                4: [CommandHandler('stop', self.stop),
+                    MessageHandler(Filters.text, self.create_articles_title_handler_func, pass_user_data=True)],
+                5: [CommandHandler('stop', self.stop),
+                    MessageHandler(Filters.text, self.create_articles_text_handler_func, pass_user_data=True)]
             },
             fallbacks=[CommandHandler('stop', self.stop)]
         )
@@ -43,6 +48,7 @@ class Bot:
         self.markup_wiki = ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=False)
         reply_keyboard = [['Больше информации'], ['Спутник', 'Гибрид'], ['Вернуться назад']]
         self.markup_map = ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=False)
+        self.markup_back = ReplyKeyboardMarkup([['Вернуться назад']], one_time_keyboard=False)
 
     def start(self, update, context):
         update.message.reply_text('Приветствую! Я Инфо_бот, благодаря мне вы сможете найти'
@@ -85,6 +91,28 @@ class Bot:
             return 3
         elif update.message.text == 'Вывести статистику':
             self.db.get_stat(update.message.chat_id, update, context)
+        elif update.message.text == 'Создать статью':
+            update.message.reply_text('Пожалуйста, дайте название своей статье!',
+                                      reply_markup=self.markup_back)
+            return 4
+
+    def create_articles_title_handler_func(self, update, context):
+        if update.message.text == 'Вернуться назад':
+            update.message.reply_text('Ожидаю вашего возвращения!', reply_markup=self.markup_start)
+            return 1
+        else:
+            context.user_data['title_article'] = update.message.text
+            update.message.reply_text('Пожалуйста, введите текст вашей статьи!', reply_markup=self.markup_back)
+            return 5
+
+    def create_articles_text_handler_func(self, update, context):
+        if update.message.text == 'Вернуться назад':
+            update.message.reply_text('Ожидаю вашего возвращения!', reply_markup=self.markup_start)
+        else:
+            context.user_data['text_article'] = update.message.text
+            self.db.add_article(update.message.chat_id, update, context)
+            update.message.reply_text('Статья создана!', reply_markup=self.markup_start)
+        return 1
 
     def wiki_handler_func(self, update, context):
         # получение большего количества картинок по запросу
@@ -203,6 +231,13 @@ class DataBase(Bot):
     def add_user(self, update, context):
         user = User(chat_id=update.message.chat_id)
         self.db_sess.add(user)
+        self.db_sess.commit()
+
+    def add_article(self, chat_id, update, context):
+        article = Article(title=context.user_data['title_article'],
+                          content=context.user_data['text_article'],
+                          user_id=chat_id)
+        self.db_sess.add(article)
         self.db_sess.commit()
 
     def search_chat(self, chat_id):
