@@ -116,9 +116,12 @@ class Bot:
         elif update.message.text == 'Вывести статистику':
             self.db.get_stat(update.message.chat_id, update, context)
         elif update.message.text == 'Создать статью':
-            update.message.reply_text('Пожалуйста, дайте название своей статье!',
-                                      reply_markup=self.markup_back)
-            return 4
+            if self.db.checking_the_number_of_articles(update.message.chat_id):
+                update.message.reply_text('Пожалуйста, дайте название своей статье!',
+                                          reply_markup=self.markup_back)
+                return 4
+            else:
+                update.message.reply_text('Эй, вы уже слишком много статей создали (20)!')
         elif update.message.text == 'Статьи':
             update.message.reply_text('Выберите, что именно вы хотите посмотреть!',
                                       reply_markup=self.markup_back)
@@ -293,6 +296,11 @@ class DataBase(Bot):
                           user_id=chat_id)
         self.db_sess.add(article)
         self.db_sess.commit()
+
+    def checking_the_number_of_articles(self, chat_id):
+        if len(self.db_sess.query(Article).filter(Article.user_id == chat_id)) >= 20:
+            return False
+        return True
 
     def search_chat(self, chat_id):
         # ищем пользователя в базе
