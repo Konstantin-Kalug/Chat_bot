@@ -143,36 +143,31 @@ class Bot:
     def map_handler_func(self, update, context):
         # получение материала с яндекса стоит перенести в отдельный класс,
         # когда будет выполнен весь функционал в программе
-        if update.message.text == 'Больше информации' and 'map_req' in context.user_data:
-            pass
-        if update.message.text == 'Вернуться назад':
+        if update.message.text == 'Больше информации':
+            if 'map_req' in context.user_data.keys():
+                pass
+            else:
+                update.message.reply_text('Мне нужен запрос, чтобы дать информацию')
+        elif update.message.text == 'Вернуться назад':
             update.message.reply_text('Надеюсь, я помог!', reply_markup=self.markup_start)
             return 1
-        if update.message.text == 'Спутник' and 'map_req' in context.user_data.keys():
-            l_map = 'sat'
-        elif update.message.text == 'Гибрид' and 'map_req' in context.user_data.keys():
-            l_map = 'sat,skl'
+        elif update.message.text == 'Спутник':
+            if 'map_req' in context.user_data.keys():
+                context.user_data['map_req'].set_l('sat', update, context)
+            else:
+                update.message.reply_text('Я даже не догадываюсь, что отправить!')
+        elif update.message.text == 'Гибрид':
+            if 'map_req' in context.user_data.keys():
+                context.user_data['map_req'].set_l('sat,skl', update, context)
+            else:
+                update.message.reply_text('Я отказываюсь что-либо отправлять-_-')
         else:
-            l_map = 'map'
-            context.user_data['map_req'] = update.message.text
-        try:
-            geocoder_uri = geocoder_request_template = "http://geocode-maps.yandex.ru/1.x/"
-            response = requests.get(geocoder_uri, params={
-                "apikey": "40d1649f-0493-4b70-98ba-98533de7710b",
-                "format": "json",
-                "geocode": context.user_data['map_req']
-            })
-            toponym = response.json()["response"]["GeoObjectCollection"][
-                "featureMember"][0]["GeoObject"]
-            ll, spn = self.get_ll_spn(toponym)
-            static_api_request = f"http://static-maps.yandex.ru/1.x/?ll={ll}&spn={spn}&l={l_map}"
-            context.bot.send_photo(
-                update.message.chat_id,
-                static_api_request,
-                caption=""
-            )
-        except Exception:
-            update.message.reply_text("По данному запросу ничего не найдено!")
+            try:
+                ymap = YandexMap(update.message.text)
+                context.user_data['map_req'] = ymap
+                ymap.send_map(update, context)
+            except Exception:
+                update.message.reply_text("По данному запросу ничего не найдено!")
 
     def get_ll_spn(self, toponym):
         ll = ','.join(toponym["Point"]["pos"].split())
@@ -255,7 +250,37 @@ class DataBase(Bot):
 
 
 class YandexMap(Bot):
-    pass
+    def __init__(self, request):
+        geocoder_uri = geocoder_request_template = "http://geocode-maps.yandex.ru/1.x/"
+        response = requests.get(geocoder_uri, params={
+            "apikey": "40d1649f-0493-4b70-98ba-98533de7710b",
+            "format": "json",
+            "geocode": request
+            })
+        toponym = response.json()["response"]["GeoObjectCollection"][
+            "featureMember"][0]["GeoObject"]
+        self.ll, self.spn = self.get_ll_spn(toponym)
+        self.l_map = 'map'
+
+    def set_l(self, type, update, context):
+        self.l_map = type
+        self.send_map(update, context)
+
+    def send_map(self, update, context):
+        static_api_request = f"http://static-maps.yandex.ru/1.x/?ll={self.ll}&spn={self.spn}&l={self.l_map}"
+        context.bot.send_photo(
+            update.message.chat_id,
+            static_api_request,
+            caption=""
+        )
+
+    def get_ll_spn(self, toponym):
+        ll = ','.join(toponym["Point"]["pos"].split())
+        spn = ','.join([str(float(toponym["boundedBy"]["Envelope"]["upperCorner"].split()[0])
+                            - float(toponym["boundedBy"]["Envelope"]["lowerCorner"].split()[0])),
+                        str(float(toponym["boundedBy"]["Envelope"]["upperCorner"].split()[1])
+                            - float(toponym["boundedBy"]["Envelope"]["lowerCorner"].split()[1]))])
+        return ll, spn
 
 
 if __name__ == '__main__':
