@@ -11,13 +11,15 @@ from data import db_session
 class Bot:
     def __init__(self):
         TOKEN = '1695668954:AAGIP9C_rmojFPzHeER7_-UQNGiOnLtA8qI'
-        reply_keyboard = [['WIKI', 'YANDEX MAP'],
+        reply_keyboard = [['WIKI', 'YANDEX MAP', 'TRANSLITERATION'],
                           ['/help', '/stop']]
         self.markup_start = ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=False)
         reply_keyboard = [['Больше картинок', 'Получить url'], ['Вернуться назад']]
         self.markup_wiki = ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=False)
         reply_keyboard = [['Больше информации'], ['Спутник', 'Гибрид'], ['Вернуться назад']]
         self.markup_map = ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=False)
+        reply_keyboard = [['Вернуться назад']]
+        self.markup_transliteration = ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=False)
         updater = Updater(TOKEN, use_context=True)
         dp = updater.dispatcher
         conv_handler = ConversationHandler(
@@ -28,7 +30,9 @@ class Bot:
                 2: [CommandHandler('stop', self.stop),
                     MessageHandler(Filters.text, self.wiki_handler_func, pass_user_data=True)],
                 3: [CommandHandler('stop', self.stop),
-                    MessageHandler(Filters.text, self.map_handler_func, pass_user_data=True)]
+                    MessageHandler(Filters.text, self.map_handler_func, pass_user_data=True)],
+                4: [CommandHandler('stop', self.stop), CommandHandler('help', self.help),
+                    MessageHandler(Filters.text, self.transliteration_handler_func)]
             },
             fallbacks=[CommandHandler('stop', self.stop)]
         )
@@ -58,8 +62,9 @@ class Bot:
                                   ' мне то, что вы хотите найти\n2.Нажмите "YANDEX MAP" и сообщите'
                                   ' мне место, которое вы хотите получить, я же выведу вам карту'
                                   ' с этим местом! Также у вас будет возможность получить'
-                                  ' дополнительную информацию об этом месте!\n3.Нажмите "/help",'
-                                  ' чтобы получить эту информацию снова!\n4.Нажмите "/stop",'
+                                  ' дополнительную информацию об этом месте!\n3.Нажмите TRANSLITIRATION'
+                                  ', и передайте мне текст, раскладку которого хотите поменять\n4."/help",'
+                                  ' чтобы получить эту информацию снова!\n5.Нажмите "/stop",'
                                   ' чтобы выключить меня:(\nЖелаю удачи!',
                                   reply_markup=self.markup_start)
         return 1
@@ -73,6 +78,10 @@ class Bot:
             update.message.reply_text('Пожалуйста, сообщите мне, что я должен для вас найти!',
                                       reply_markup=self.markup_map)
             return 3
+        elif update.message.text == 'TRANSLITERATION':
+            update.message.reply_text('Пожалуйста, введите текст, раскладку которого вы хотите поменять!!',
+                                      reply_markup=self.markup_transliteration)
+            return 4
 
     def wiki_handler_func(self, update, context):
         # получение большего количества картинок по запросу
@@ -140,6 +149,27 @@ class Bot:
                         str(float(toponym["boundedBy"]["Envelope"]["upperCorner"].split()[1]) - float(toponym["boundedBy"]["Envelope"]["lowerCorner"].split()[1]))])
         return ll, spn
 
+    def transliteration_handler_func(self, update, context):
+        keymap = {'f': 'а', ',': 'б', 'd': 'в', 'u': 'г', 'l': 'д', 't': 'е', '`': 'ё', ';': 'ж', 'p': 'з', 'b': 'и',
+                  'q': 'й', 'r': 'к', 'k': 'л', 'v': 'м', 'y': 'н', 'j': 'о', 'g': 'п', 'h': 'р', 'c': 'с', 'n': 'т',
+                  'e': 'у','a': 'ф', '[': 'х', 'w': 'ц', 'x': 'ч', 'i': 'ш', 'o': 'щ', ']': 'ъ', 's': 'ы', 'm': 'ь',
+                  "'": 'э', '.': 'ю', 'z': 'я', }
+        mes = update.message.text
+        if mes != '' and mes != 'Вернуться назад':
+            new_mes = ''
+            for i in mes:
+                if i.isupper():
+                    new_mes += (keymap[i.lower()]).upper()
+                elif i not in keymap:
+                    new_mes += i
+                else:
+                    new_mes += keymap[i]
+            update.message.reply_text(new_mes, reply_markup=self.markup_transliteration)
+            return 4
+        elif mes == 'Вернуться назад':
+            update.message.reply_text('Надеюсь, TRANSLITERATION вам помог!', reply_markup=self.markup_start)
+            return 1
+
 
 class Wiki(Bot):
     def __init__(self, request):
@@ -184,6 +214,10 @@ class Wiki(Bot):
 
 
 class YandexMap(Bot):
+    pass
+
+
+class Translitaration(Bot):
     pass
 
 
