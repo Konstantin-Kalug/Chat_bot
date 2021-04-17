@@ -157,7 +157,7 @@ class Wiki(Bot):
                 try:
                     context.bot.send_photo(
                         update.message.chat_id,
-                        self.images[0],
+                        self.images[i],
                         caption=""
                     )
                 except Exception:
@@ -181,6 +181,11 @@ class Wiki(Bot):
             except Exception:
                 pass
         update.message.reply_text(self.content[:4096])
+
+
+class DataBase:
+    def __init__(self, address):
+        pass
 
 
 class YandexMap(Bot):
