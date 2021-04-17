@@ -28,9 +28,13 @@ class Bot:
                 3: [CommandHandler('stop', self.stop),
                     MessageHandler(Filters.text, self.map_handler_func, pass_user_data=True)],
                 4: [CommandHandler('stop', self.stop),
-                    MessageHandler(Filters.text, self.create_articles_title_handler_func, pass_user_data=True)],
+                    MessageHandler(Filters.text, self.create_articles_title_handler_func,
+                                   pass_user_data=True)],
                 5: [CommandHandler('stop', self.stop),
-                    MessageHandler(Filters.text, self.create_articles_text_handler_func, pass_user_data=True)]
+                    MessageHandler(Filters.text, self.create_articles_text_handler_func,
+                                   pass_user_data=True)],
+                6: [CommandHandler('stop', self.stop), CommandHandler('help', self.help),
+                    MessageHandler(Filters.text, self.transliteration_handler_func)]
             },
             fallbacks=[CommandHandler('stop', self.stop)]
         )
@@ -40,9 +44,10 @@ class Bot:
 
     def create_standart_keyboards(self):
         # создание всех основных клавиатур
-        reply_keyboard = [['WIKI', 'YANDEX MAP'],
-                          ['Создать статью', 'Статьи'],
-                          ['Транслейтор'],
+        reply_keyboard = [['WIKI', 'YANDEX MAP', 'TRANSLITERATION'],
+                          ['Создать статью'],
+                          ['Изменить статью', 'Удалить статью'],
+                          ['Статьи'],
                           ['Вывести статистику'],
                           ['/help', '/stop']]
         self.markup_start = ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=False)
@@ -84,8 +89,11 @@ class Bot:
                                   ' мне то, что вы хотите найти\n2.Нажмите "YANDEX MAP" и сообщите'
                                   ' мне место, которое вы хотите получить, я же выведу вам карту'
                                   ' с этим местом! Также у вас будет возможность получить'
-                                  ' дополнительную информацию об этом месте!\n3.Нажмите "/help",'
-                                  ' чтобы получить эту информацию снова!\n4.Нажмите "/stop",'
+                                  ' дополнительную информацию об этом месте!\n'
+                                  '3.Нажмите TRANSLITIRATION'
+                                  ', и передайте мне текст, раскладку которого хотите поменять\n'
+                                  '4."/help",'
+                                  ' чтобы получить эту информацию снова!\n5.Нажмите "/stop",'
                                   ' чтобы выключить меня:(\nЖелаю удачи!',
                                   reply_markup=self.markup_start)
         return 1
@@ -100,6 +108,11 @@ class Bot:
             update.message.reply_text('Пожалуйста, сообщите мне, что я должен для вас найти!',
                                       reply_markup=self.markup_map)
             return 3
+        elif update.message.text == 'TRANSLITERATION':
+            update.message.reply_text('Пожалуйста,'
+                                      ' введите текст, раскладку которого вы хотите поменять!!',
+                                      reply_markup=self.markup_back)
+            return 6
         elif update.message.text == 'Вывести статистику':
             self.db.get_stat(update.message.chat_id, update, context)
         elif update.message.text == 'Создать статью':
@@ -117,7 +130,8 @@ class Bot:
             return 1
         else:
             context.user_data['title_article'] = update.message.text
-            update.message.reply_text('Пожалуйста, введите текст вашей статьи!', reply_markup=self.markup_back)
+            update.message.reply_text('Пожалуйста, введите текст вашей статьи!',
+                                      reply_markup=self.markup_back)
             return 5
 
     def create_articles_text_handler_func(self, update, context):
@@ -129,6 +143,7 @@ class Bot:
             context.user_data['text_article'] = update.message.text
             self.db.add_article(update.message.chat_id, update, context)
             update.message.reply_text('Статья создана!', reply_markup=self.markup_start)
+            self.db.update_stat(update.message.chat_id, 'art')
         return 1
 
     def articles_handler_func(self, update, context):
@@ -158,6 +173,7 @@ class Bot:
                 wiki = Wiki(update.message.text)
                 context.user_data['wiki_req'] = wiki
                 context.user_data['wiki_req'].get_content(update, context)
+                self.db.update_stat(update.message.chat_id, 'wiki')
             except Exception:
                 update.message.reply_text("По данному запросу ничего не найдено!")
 
@@ -187,11 +203,37 @@ class Bot:
         else:
             # создание запроса и отправка карты
             try:
-                ymap = YandexMap(update.message.text)
+                ymap = YandexMap(update, update.message.text)
                 context.user_data['map_req'] = ymap
                 ymap.send_map(update, context)
+                self.db.update_stat(update.message.chat_id, 'map')
             except Exception:
                 update.message.reply_text("По данному запросу ничего не найдено!")
+
+    def transliteration_handler_func(self, update, context):
+        keymap = {'f': 'а', ',': 'б', 'd': 'в', 'u': 'г', 'l': 'д', 't': 'е', '`': 'ё', ';': 'ж',
+                  'p': 'з', 'b': 'и',
+                  'q': 'й', 'r': 'к', 'k': 'л', 'v': 'м', 'y': 'н', 'j': 'о', 'g': 'п', 'h': 'р',
+                  'c': 'с', 'n': 'т',
+                  'e': 'у', 'a': 'ф', '[': 'х', 'w': 'ц', 'x': 'ч', 'i': 'ш', 'o': 'щ', ']': 'ъ',
+                  's': 'ы', 'm': 'ь',
+                  "'": 'э', '.': 'ю', 'z': 'я', }
+        mes = update.message.text
+        if mes != '' and mes != 'Вернуться назад':
+            new_mes = ''
+            for i in mes:
+                if i.isupper():
+                    new_mes += (keymap[i.lower()]).upper()
+                elif i not in keymap:
+                    new_mes += i
+                else:
+                    new_mes += keymap[i]
+            update.message.reply_text(new_mes, reply_markup=self.markup_back)
+            return 6
+        elif mes == 'Вернуться назад':
+            update.message.reply_text('Надеюсь, TRANSLITERATION вам помог!',
+                                      reply_markup=self.markup_start)
+            return 1
 
 
 class Wiki(Bot):
@@ -234,7 +276,6 @@ class Wiki(Bot):
             except Exception:
                 pass
         update.message.reply_text(self.content[:4096])
-        self.db.update_stat(update.message.chat_id, 'wiki')
 
 
 class DataBase(Bot):
@@ -256,7 +297,6 @@ class DataBase(Bot):
                           user_id=chat_id)
         self.db_sess.add(article)
         self.db_sess.commit()
-        self.db.update_stat(update.message.chat_id, 'art')
 
     def search_chat(self, chat_id):
         # ищем пользователя в базе
@@ -316,7 +356,6 @@ class YandexMap(Bot):
             static_api_request,
             caption=""
         )
-        self.db.update_stat(update.message.chat_id, 'map')
 
     def get_ll_spn(self, toponym):
         # получаем координаты и масштаб
@@ -326,6 +365,10 @@ class YandexMap(Bot):
                         str(float(toponym["boundedBy"]["Envelope"]["upperCorner"].split()[1])
                             - float(toponym["boundedBy"]["Envelope"]["lowerCorner"].split()[1]))])
         return ll, spn
+
+
+class Translitaration(Bot):
+    pass
 
 
 if __name__ == '__main__':
