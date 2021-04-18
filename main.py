@@ -214,7 +214,7 @@ class Bot:
                 translit = Translit()
                 new_mes = translit.transliteration(mes)
                 update.message.reply_text(new_mes, reply_markup=self.markup_back)
-                # self.db.update_stat(update.message.chat_id, 'translits_requests')
+                self.db.update_stat(update.message.chat_id, 'translits_requests')
                 return 6
             except Exception:
                 update.message.reply_text("Небольшие неполадки!")
@@ -305,7 +305,7 @@ class DataBase(Bot):
             text = f'1.Количество WIKI запросов: {user.wiki_requests}\n' \
                    f'2.Количество YANDEX MAP запросов: {user.maps_requests}\n' \
                    f'3.Количество статей: {user.articles}\n' \
-                   f'4.Количество переводов: {user.wiki_requests}\n' \
+                   f'4.Количество переводов: {user.translits_requests}\n' \
                    f'5.Общий рейтинг: {user.overall_rating}'
             update.message.reply_text(text)
 
@@ -322,9 +322,9 @@ class DataBase(Bot):
             elif type == 'art':
                 user.articles += 1
                 user.overall_rating += 10
-            # elif type == 'translits_requests':
-            #     user.translits_requests += 1
-            #     user.overall_rating += 1
+            elif type == 'translits_requests':
+                user.translits_requests += 1
+                user.overall_rating += 1
             self.db_sess.commit()
 
 
