@@ -208,29 +208,42 @@ class Bot:
                 update.message.reply_text("По данному запросу ничего не найдено!")
 
     def transliteration_handler_func(self, update, context):
-        keymap = {'f': 'а', ',': 'б', 'd': 'в', 'u': 'г', 'l': 'д', 't': 'е', '`': 'ё', ';': 'ж',
+        mes = update.message.text
+        if mes != '' and mes != 'Вернуться назад':
+            try:
+                translit = Translit()
+                new_mes = translit.transliteration(mes)
+                update.message.reply_text(new_mes, reply_markup=self.markup_back)
+                # self.db.update_stat(update.message.chat_id, 'translits')
+                return 6
+            except Exception:
+                update.message.reply_text("Небольшие неполадки!")
+        elif mes == 'Вернуться назад':
+            update.message.reply_text('Надеюсь, TRANSLITERATION вам помог!',
+                                      reply_markup=self.markup_start)
+            return 1
+
+
+class Translit(Bot):
+    def __init__(self):
+        self.keymap = {'f': 'а', ',': 'б', 'd': 'в', 'u': 'г', 'l': 'д', 't': 'е', '`': 'ё', ';': 'ж',
                   'p': 'з', 'b': 'и',
                   'q': 'й', 'r': 'к', 'k': 'л', 'v': 'м', 'y': 'н', 'j': 'о', 'g': 'п', 'h': 'р',
                   'c': 'с', 'n': 'т',
                   'e': 'у', 'a': 'ф', '[': 'х', 'w': 'ц', 'x': 'ч', 'i': 'ш', 'o': 'щ', ']': 'ъ',
                   's': 'ы', 'm': 'ь',
                   "'": 'э', '.': 'ю', 'z': 'я', }
-        mes = update.message.text
-        if mes != '' and mes != 'Вернуться назад':
-            new_mes = ''
-            for i in mes:
-                if i.isupper():
-                    new_mes += (keymap[i.lower()]).upper()
-                elif i not in keymap:
-                    new_mes += i
-                else:
-                    new_mes += keymap[i]
-            update.message.reply_text(new_mes, reply_markup=self.markup_back)
-            return 6
-        elif mes == 'Вернуться назад':
-            update.message.reply_text('Надеюсь, TRANSLITERATION вам помог!',
-                                      reply_markup=self.markup_start)
-            return 1
+
+    def transliteration(self, message):
+        new_mes = ''
+        for i in message:
+            if i.isupper():
+                new_mes += (self.keymap[i.lower()]).upper()
+            elif i not in self.keymap:
+                new_mes += i
+            else:
+                new_mes += self.keymap[i]
+        return new_mes
 
 
 class Wiki(Bot):
@@ -314,7 +327,8 @@ class DataBase(Bot):
             text = f'1.Количество WIKI запросов: {user.wiki_requests}\n' \
                    f'2.Количество YANDEX MAP запросов: {user.maps_requests}\n' \
                    f'3.Количество статей: {user.articles}\n' \
-                   f'4.Общий рейтинг: {user.overall_rating}'
+                   f'4.Количество переводов: {user.translits}\n' \
+                   f'5.Общий рейтинг: {user.overall_rating}'
             update.message.reply_text(text)
 
     def update_stat(self, chat_id, type):
@@ -330,6 +344,9 @@ class DataBase(Bot):
             elif type == 'art':
                 user.articles += 1
                 user.overall_rating += 10
+            elif type == 'translits':
+                user.translits += 1
+                user.overall_rating += 1
             self.db_sess.commit()
 
 
@@ -374,8 +391,7 @@ class YandexMap(Bot):
         return ll, spn
 
 
-class Translitaration(Bot):
-    pass
+
 
 
 if __name__ == '__main__':
