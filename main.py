@@ -34,7 +34,13 @@ class Bot:
                     MessageHandler(Filters.text, self.create_articles_text_handler_func,
                                    pass_user_data=True)],
                 6: [CommandHandler('stop', self.stop), CommandHandler('help', self.help),
-                    MessageHandler(Filters.text, self.transliteration_handler_func)]
+                    MessageHandler(Filters.text, self.transliteration_handler_func)],
+                7: [CommandHandler('stop', self.stop),
+                    MessageHandler(Filters.text, self.articles_handler_func,
+                                   pass_user_data=True)],
+                8: [CommandHandler('stop', self.stop),
+                    MessageHandler(Filters.text, self.output_articles_handler_func,
+                                   pass_user_data=True)]
             },
             fallbacks=[CommandHandler('stop', self.stop)]
         )
@@ -56,6 +62,8 @@ class Bot:
         reply_keyboard = [['Спутник', 'Гибрид'], ['Вернуться назад']]
         self.markup_map = ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=False)
         self.markup_back = ReplyKeyboardMarkup([['Вернуться назад']], one_time_keyboard=False)
+        self.markup_articles = ReplyKeyboardMarkup([['Мои статьи', 'Статьи других пользователей'],
+                                                    ['Вернуться назад']], one_time_keyboard=False)
 
     def create_keyboard_articles(self, update, context):
         # создание клавиатуры для просмотра статей
@@ -124,7 +132,8 @@ class Bot:
                 update.message.reply_text('Эй, вы уже слишком много статей создали (20)!')
         elif update.message.text == 'Статьи':
             update.message.reply_text('Выберите, что именно вы хотите посмотреть!',
-                                      reply_markup=self.markup_back)
+                                      reply_markup=self.markup_articles)
+            return 7
 
     def create_articles_title_handler_func(self, update, context):
         # проверка ввода названия статьи
@@ -132,7 +141,12 @@ class Bot:
             update.message.reply_text('Ожидаю вашего возвращения!', reply_markup=self.markup_start)
             return 1
         else:
-            context.user_data['title_article'] = update.message.text
+            if self.db.check_articles_titles(update.message.text):
+                context.user_data['title_article'] = update.message.text
+            else:
+                update.message.reply_text('Такая статья уже есть!',
+                                          reply_markup=self.markup_back)
+                return 4
             update.message.reply_text('Пожалуйста, введите текст вашей статьи!',
                                       reply_markup=self.markup_back)
             return 5
@@ -150,8 +164,40 @@ class Bot:
         return 1
 
     def articles_handler_func(self, update, context):
-        # роверяем статьи
-        pass
+        # проверяем, какие статьи выводить
+        if update.message.text == 'Вернуться назад':
+            update.message.reply_text('Надеюсь, вы нашли, что искали!', reply_markup=self.markup_start)
+            return 1
+        elif update.message.text == 'Мои статьи':
+            context.user_data['articles'] = 'user'
+            context.user_data['num'] = 0
+            update.message.reply_text('Выберите статью',
+                                      reply_markup=self.db.create_keyboard(context, update))
+        else:
+            context.user_data['articles'] = 'other'
+            context.user_data['num'] = 0
+            update.message.reply_text('Выберите статью',
+                                      reply_markup=self.db.create_keyboard(context, update))
+        return 8
+
+    def output_articles_handler_func(self, update, context):
+        if update.message.text == 'Вернуться назад':
+            update.message.reply_text('Выберите, что именно вы хотите посмотреть!',
+                                      reply_markup=self.markup_articles)
+            return 7
+        elif update.message.text == '--->':
+            context.user_data['num'] += 1
+            update.message.reply_text('Выбирайте', reply_markup=self.db.create_keyboard(context, update))
+            return 8
+        elif update.message.text == '<---':
+            context.user_data['num'] -= 1
+            update.message.reply_text('Выбирайте', reply_markup=self.db.create_keyboard(context, update))
+            return 8
+        else:
+            title, text = self.db.output_arciles(update.message.text)
+            update.message.reply_text(title)
+            update.message.reply_text(text)
+            return 8
 
     def wiki_handler_func(self, update, context):
         # получение большего количества картинок по запросу
@@ -274,6 +320,37 @@ class DataBase(Bot):
         db_session.global_init(address)
         self.db_sess = db_session.create_session()
 
+    def create_keyboard(self, context, update):
+        # создаем клавиатуру-список статей
+        articles = []
+        if context.user_data['articles'] == 'other':
+            for at in self.db_sess.query(Article).filter(Article.user_id != update.message.chat_id):
+                articles.append(at)
+        else:
+            for at in self.db_sess.query(Article).filter(Article.user_id == update.message.chat_id):
+                articles.append(at)
+        reply_markup = []
+        if context.user_data['num'] < 0:
+            context.user_data['num'] = 0
+        elif context.user_data['num'] > len(articles):
+            context.user_data['num'] -= 1
+        for i in range(context.user_data['num'], context.user_data['num'] + 5):
+            try:
+                reply_markup.append([articles[i].title])
+            except Exception:
+                break
+        reply_markup.append(['<---', '--->'])
+        reply_markup.append(['Вернуться назад'])
+        return ReplyKeyboardMarkup(reply_markup, one_time_keyboard=False)
+
+    def output_arciles(self, title):
+        # выводим заголовок и текст, если он найден
+        try:
+            for art in self.db_sess.query(Article).filter(Article.title == title):
+                return art.title, art.content
+        except Exception:
+            return 'Ничего не найдено', 'Попробуйте снова'
+
     def add_user(self, update, context):
         # добавляем пользователя
         user = User(chat_id=update.message.chat_id)
@@ -289,9 +366,22 @@ class DataBase(Bot):
         self.db_sess.commit()
 
     def checking_the_number_of_articles(self, chat_id):
-        if len(self.db_sess.query(Article).filter(Article.user_id == chat_id)) >= 20:
+        # проверяем количество статей пользователя
+        articles = []
+        for at in self.db_sess.query(Article).filter(Article.user_id == chat_id):
+            articles.append(at)
+        if len(articles) >= 20:
             return False
         return True
+
+    def check_articles_titles(self, title):
+        # проверяем, существует ли статья с таким же названием
+        articles = []
+        for at in self.db_sess.query(Article).filter(Article.title == title):
+            articles.append(at)
+        if len(articles) == 0:
+            return True
+        return False
 
     def search_chat(self, chat_id):
         # ищем пользователя в базе
@@ -311,7 +401,6 @@ class DataBase(Bot):
 
     def update_stat(self, chat_id, type):
         # обновляем статистику
-        # функция работает, ошибки возникают в вызове
         for user in self.db_sess.query(User).filter(User.chat_id == chat_id):
             if type == 'wiki':
                 user.wiki_requests += 1
