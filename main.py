@@ -40,6 +40,9 @@ class Bot:
                                    pass_user_data=True)],
                 8: [CommandHandler('stop', self.stop),
                     MessageHandler(Filters.text, self.output_articles_handler_func,
+                                   pass_user_data=True)],
+                9: [CommandHandler('stop', self.stop),
+                    MessageHandler(Filters.text, self.delete_articles_text_handler_func,
                                    pass_user_data=True)]
             },
             fallbacks=[CommandHandler('stop', self.stop)]
@@ -134,6 +137,10 @@ class Bot:
             update.message.reply_text('Выберите, что именно вы хотите посмотреть!',
                                       reply_markup=self.markup_articles)
             return 7
+        elif update.message.text == 'Удалить статью':
+            update.message.reply_text('Выберите статью, которую хотите удалить!',
+                                      reply_markup=self.markup_articles)
+            return 9
 
     def create_articles_title_handler_func(self, update, context):
         # проверка ввода названия статьи
@@ -160,6 +167,18 @@ class Bot:
             context.user_data['text_article'] = update.message.text
             self.db.add_article(update.message.chat_id, update, context)
             update.message.reply_text('Статья создана!', reply_markup=self.markup_start)
+            self.db.update_stat(update.message.chat_id, 'art')
+        return 1
+
+    def delete_articles_text_handler_func(self, update, context):
+        # проверка ввод названия статьи
+        if update.message.text == 'Вернуться назад':
+            update.message.reply_text('Ожидаю вашего возвращения!', reply_markup=self.markup_start)
+        else:
+            # удаляем статью из базы
+            context.user_data['title_article'] = update.message.text
+            self.db.del_article(update.message.chat_id, update, context)
+            update.message.reply_text('Статья удалена!', reply_markup=self.markup_start)
             self.db.update_stat(update.message.chat_id, 'art')
         return 1
 
@@ -364,6 +383,19 @@ class DataBase(Bot):
                           user_id=chat_id)
         self.db_sess.add(article)
         self.db_sess.commit()
+
+    def del_article(self, chat_id, update, context):
+        # удаляем статью
+        title = update.message.text
+        if self.check_articles_titles(title):
+            article = self.db_sess.query(Article).get(Article.title == title).first()
+            self.db_sess.delete(article)
+            self.db_sess.commit()
+
+        # for art in self.db_sess.query(Article).filter(Article.title == title):
+        #     self.db_sess.delete(article)
+        #     self.db_sess.commit()
+
 
     def checking_the_number_of_articles(self, chat_id):
         # проверяем количество статей пользователя
