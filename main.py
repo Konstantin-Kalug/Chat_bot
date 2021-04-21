@@ -138,8 +138,10 @@ class Bot:
                                       reply_markup=self.markup_articles)
             return 7
         elif update.message.text == 'Удалить статью':
+            context.user_data['articles'] = 'user'
+            context.user_data['num'] = 0
             update.message.reply_text('Выберите статью, которую хотите удалить!',
-                                      reply_markup=self.markup_articles)
+                                      reply_markup=self.db.create_keyboard(context, update))
             return 9
 
     def create_articles_title_handler_func(self, update, context):
@@ -174,13 +176,25 @@ class Bot:
         # проверка ввод названия статьи
         if update.message.text == 'Вернуться назад':
             update.message.reply_text('Ожидаю вашего возвращения!', reply_markup=self.markup_start)
+        elif update.message.text == '--->':
+            context.user_data['num'] += 1
+            update.message.reply_text('Выбирайте',
+                                      reply_markup=self.db.create_keyboard(context, update))
+            return 9
+        elif update.message.text == '<---':
+            context.user_data['num'] -= 1
+            update.message.reply_text('Выбирайте',
+                                      reply_markup=self.db.create_keyboard(context, update))
+            return 9
         else:
             # удаляем статью из базы
-            context.user_data['title_article'] = update.message.text
-            self.db.del_article(update.message.chat_id, update, context)
-            update.message.reply_text('Статья удалена!', reply_markup=self.markup_start)
-            self.db.update_stat(update.message.chat_id, 'art')
-        return 1
+            if self.db.del_article(update.message.chat_id, update.message.text) is None:
+                update.message.reply_text('Статья удалена!', reply_markup=self.markup_start)
+                return 1
+            else:
+                update.message.reply_text('Статья не найдена!',
+                                          reply_markup=self.db.create_keyboard(context, update))
+                return 9
 
     def articles_handler_func(self, update, context):
         # проверяем, какие статьи выводить
@@ -384,18 +398,14 @@ class DataBase(Bot):
         self.db_sess.add(article)
         self.db_sess.commit()
 
-    def del_article(self, chat_id, update, context):
+    def del_article(self, chat_id, title):
         # удаляем статью
-        title = update.message.text
-        if self.check_articles_titles(title):
-            article = self.db_sess.query(Article).get(Article.title == title).first()
+        if not(self.check_articles_titles(title)):
+            article = self.db_sess.query(Article).filter(Article.title == title).first()
             self.db_sess.delete(article)
             self.db_sess.commit()
-
-        # for art in self.db_sess.query(Article).filter(Article.title == title):
-        #     self.db_sess.delete(article)
-        #     self.db_sess.commit()
-
+        else:
+            return False
 
     def checking_the_number_of_articles(self, chat_id):
         # проверяем количество статей пользователя
