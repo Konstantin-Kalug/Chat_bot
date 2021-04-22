@@ -245,7 +245,7 @@ class Bot:
                 return 7
             else:
                 update.message.reply_text('Возвращайтесь!',
-                                          reply_markup=self.start)
+                                          reply_markup=self.markup_start)
                 return 1
         elif update.message.text == '--->':
             context.user_data['num'] += 1
