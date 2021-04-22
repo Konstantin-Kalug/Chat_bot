@@ -543,25 +543,33 @@ class YandexMap(Bot):
 
 class Translit(Bot):
     def __init__(self):
-        # словарь символов
-        self.keymap = {'f': 'а', ',': 'б', 'd': 'в', 'u': 'г', 'l': 'д', 't': 'е', '`': 'ё', ';': 'ж',
-                       'p': 'з', 'b': 'и',
-                       'q': 'й', 'r': 'к', 'k': 'л', 'v': 'м', 'y': 'н', 'j': 'о', 'g': 'п', 'h': 'р',
-                       'c': 'с', 'n': 'т',
-                       'e': 'у', 'a': 'ф', '[': 'х', 'w': 'ц', 'x': 'ч', 'i': 'ш', 'o': 'щ', ']': 'ъ',
-                       's': 'ы', 'm': 'ь',
-                       "'": 'э', '.': 'ю', 'z': 'я', }
+        # словари символов
+        self.keymap_eng = {'f': 'а', ',': 'б', 'd': 'в', 'u': 'г', 'l': 'д', 't': 'е', '`': 'ё', ';': 'ж',
+                           'p': 'з', 'b': 'и',
+                           'q': 'й', 'r': 'к', 'k': 'л', 'v': 'м', 'y': 'н', 'j': 'о', 'g': 'п', 'h': 'р',
+                           'c': 'с', 'n': 'т',
+                           'e': 'у', 'a': 'ф', '[': 'х', 'w': 'ц', 'x': 'ч', 'i': 'ш', 'o': 'щ', ']': 'ъ',
+                           's': 'ы', 'm': 'ь',
+                           "'": 'э', '.': 'ю', 'z': 'я', }
+        self.keymap_ru = {val: key for key, val in self.keymap_eng.items()}
 
     def transliteration(self, message):
         # переводим текст пользователя
         new_message = ''
-        for i in message:
-            if i.isupper():
-                new_message += (self.keymap[i.lower()]).upper()
-            elif i not in self.keymap:
-                new_message += i
+        keymap = None
+        for symb in message:
+            # выбираем словарь
+            if symb.lower() in self.keymap_eng.keys():
+                keymap = self.keymap_eng
+            elif symb.lower() in self.keymap_ru.keys():
+                keymap = self.keymap_ru
+            # выводим нужный нам символ
+            if symb.isupper() and not(keymap is None):
+                new_message += (keymap[symb.lower()]).upper()
+            elif not(keymap is None):
+                new_message += keymap[symb]
             else:
-                new_message += self.keymap[i]
+                new_message += symb
         return new_message
 
 
