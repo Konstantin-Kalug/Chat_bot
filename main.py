@@ -502,7 +502,7 @@ class Translit:
                            'c': 'с', 'n': 'т',
                            'e': 'у', 'a': 'ф', '[': 'х', 'w': 'ц', 'x': 'ч', 'i': 'ш', 'o': 'щ', ']': 'ъ',
                            's': 'ы', 'm': 'ь',
-                           "'": 'э', '.': 'ю', 'z': 'я', }
+                           "'": 'э', '.': 'ю', 'z': 'я',}
         self.keymap_ru = {val: key for key, val in self.keymap_eng.items()}
 
     # метод, отвечающий за изменение сообщений
@@ -512,6 +512,7 @@ class Translit:
         keymap = None
         for symb in message:
             # выбираем словарь
+            str(symb)
             if symb.lower() in self.keymap_eng.keys():
                 keymap = self.keymap_eng
             elif symb.lower() in self.keymap_ru.keys():
@@ -520,12 +521,12 @@ class Translit:
             # меняем заглавные буквы
             if symb.isupper() and not(keymap is None):
                 new_message += (keymap[symb.lower()]).upper()
+            # выводим тот же символ
+            elif symb not in keymap:
+                new_message += symb
             # меняем строчные буквы
             elif not(keymap is None):
                 new_message += keymap[symb]
-            # выодим тот же символ
-            else:
-                new_message += symb
         return new_message
 
 
