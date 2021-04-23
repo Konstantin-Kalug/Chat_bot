@@ -172,7 +172,8 @@ class Bot:
             return 8
         # сообщаем пользователю, что он должен пользоваться кнопками
         else:
-            update.message.reply_text('Извините, но я не могу вам ответить! Пользуйтесь кнопками!')
+            update.message.reply_text('Извините, но я не могу вам ответить! Пользуйтесь кнопками!',
+                                      reply_markup=self.markup_start)
 
     # метод, получающий сообщения для создания статьи (название)
     def create_articles_title_handler_func(self, update, context):
