@@ -15,7 +15,7 @@
 5. data/users.py - orm для таблицы users в базе данных
 6. data/db_session.py - файл для работы с базой данных
 7. data/articles.py - orm для таблицы articles в базе данных
-8. data/__all_models.py - файл для использования orm
+8. data/\__all_models.py - файл для использования orm
 
 ## Структура main.py
 ### Class Bot
@@ -66,4 +66,14 @@
 Данный класс используется для работы с базой данных:
 В данном классе используются следующие методы:
 1. __init__(address) - инициализация базы данных
-2.
+2. create_keyboard(context, update) - создание списка статей для клавиатуры
+3. output_arciles(title) - получение статьи для последующего вывода
+4. add_user(update, context) - добавление пользователя в базу данных
+5. add_article(chat_id, update, context) - добавление статьи в базу данных
+6. del_article(chat_id, title) - удаление статьи из базы данных
+7. update_article(title, text) - изменение текста статьи в базе данных
+8. checking_the_number_of_articles(chat_id) - проверка количества статей у пользователя (не больше 20-и)
+9. check_articles_titles(title) - проверка на повторение названия статьи
+10. search_chat(chat_id) - проверка на нахождение пользователя в базу данных
+11. get_stat(chat_id, update, context) - вывод статистики пользователя
+12. update_stat(chat_id, type) - обновление статистики пользователя
