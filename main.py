@@ -18,7 +18,7 @@ class Bot:
         self.db = DataBase("db/info.db")
         # создаем основные типы клавиатур
         self.create_standart_keyboards()
-        # работам с телеграммом
+        # работа с телеграммом
         dp = updater.dispatcher
         conv_handler = ConversationHandler(
             entry_points=[CommandHandler('start', self.start)],
