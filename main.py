@@ -622,7 +622,7 @@ class DataBase:
         articles = []
         for at in self.db_sess.query(Article).filter(Article.user_id == chat_id):
             articles.append(at)
-        if len(articles) >= 20:
+        if len(articles) > 20:
             return False
         return True
 
